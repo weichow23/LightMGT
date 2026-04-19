@@ -1,0 +1,16 @@
+torch>=2.1.0
+transformers>=4.40.0
+diffusers>=0.27.0
+accelerate>=0.28.0
+peft>=0.10.0
+safetensors>=0.4.0
+einops>=0.7.0
+triton>=2.2.0
+fla>=0.1.0
+datasets>=2.18.0
+webdataset>=0.2.0
+pillow>=10.0.0
+numpy>=1.24.0
+tqdm
+wandb
+omegaconf

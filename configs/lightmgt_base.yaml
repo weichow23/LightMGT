@@ -1,0 +1,95 @@
+# LightMGT Base Configuration
+# 0.38B (384M) transformer, Open-MAGVIT2-PT 262K (LFQ 18-bit), Qwen3.5-0.8B text encoder
+
+model:
+  hidden_size: 1024
+  num_double_blocks: 4
+  num_single_gla_blocks: 14
+  num_single_softmax_blocks: 6
+  num_attention_heads: 16
+  head_dim: 64
+  mlp_ratio: 2.6875
+  codebook_size: 262144            # Open-MAGVIT2-PT LFQ 18-bit (2^18)
+  mask_token_id: 262144
+  vocab_size: 262145               # codebook + 1 mask token
+  num_lfq_bits: 18
+  gen_head_groups: 2
+  gen_head_vocab: 512              # 262144 = 512 × 512 (2 groups of 9 bits)
+  text_hidden_size: 1024
+  text_max_length: 256
+  rope_axes_dim: [8, 28, 28]
+  rope_theta: 10000.0
+  label_smoothing: 0.1
+  cfg_dropout: 0.1
+  use_sandwich_norm: true
+  use_parallel_block: true
+  use_qk_norm: true
+  use_bias: false
+  gla_conv_size: 4
+  gla_expand_ratio: 1.0
+
+training:
+  # Phase 0: VQ Adaptor
+  phase0:
+    max_steps: 5000
+    learning_rate: 1.0e-3
+    resolution: 256
+    batch_size: 64
+    freeze_transformer: true
+
+  # Phase 1: T2I Pretraining
+  # Actual running config: LR=1.5e-4, warmup=1000, BS=32×8GPU×4accum=1024 effective
+  phase1:
+    max_steps: 300000
+    learning_rate: 1.5e-4
+    warmup_steps: 1000
+    progressive_resolutions: [128, 256, 512, 1024]
+    resolution_steps: [0, 249000, 399000, 449000]
+    batch_size: 32
+    gradient_accumulation_steps: 4
+
+  # Phase 2: Joint Training
+  phase2:
+    max_steps: 40000
+    learning_rate: 5.0e-5
+    warmup_steps: 2000
+    resolution: 1024
+    batch_size: 32
+    gradient_accumulation_steps: 8
+    t2i_ratio: 0.9
+    edit_ratio: 0.1
+
+  # Common
+  optimizer:
+    beta1: 0.9
+    beta2: 0.96
+    weight_decay: 0.045
+    grad_clip: 1.0
+
+  scheduler:
+    type: cosine
+    floor_ratio: 0.1
+
+  mask_schedule: arccos
+  cfg_dropout: 0.1
+  label_smoothing: 0.1
+  mixed_precision: bf16
+  gradient_checkpointing: true
+  save_steps: 1000
+  log_steps: 50
+
+data:
+  base_dir: /mnt/hdfs/weichow/maskedit
+  t2i_dir: ${data.base_dir}/t2i
+  edit_dir: ${data.base_dir}/edit
+  control_dir: ${data.base_dir}/control
+  multi_image_dir: ${data.base_dir}/vqa
+
+external:
+  text_encoder: Qwen/Qwen3.5-0.8B
+  vq_model: open-magvit2-pt-262k   # LFQ 18-bit, 16x downsample
+  text_max_length: 256
+
+paths:
+  output_dir: /mnt/bn/search-auto-eval-v2/zhouwei/LightMGT/checkpoints
+  log_dir: /mnt/bn/search-auto-eval-v2/zhouwei/LightMGT/logs
